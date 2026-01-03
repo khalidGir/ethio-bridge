@@ -6,8 +6,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "migrate": "tsx src/migrate.ts",
-    "deploy": "npm run build && npm run migrate && npm start"
+    "test:db": "tsx src/test-connection.ts",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

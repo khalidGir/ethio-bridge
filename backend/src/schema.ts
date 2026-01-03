@@ -23,6 +23,6 @@ export const faqs = pgTable('faqs', {
   tenantId: varchar('tenant_id', { length: 255 }).references(() => tenants.id),
   question: text('question').notNull(),
   answer: text('answer').notNull(),
-  parentId: integer('parent_id').references(() => faqs.id),
+  parentId: integer('parent_id'), // Removed self-reference to avoid circular dependency
   createdAt: timestamp('created_at').defaultNow(),
 });

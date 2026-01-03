@@ -44,7 +44,7 @@ async function migrate() {
         tenant_id VARCHAR(255) REFERENCES tenants(id),
         question TEXT NOT NULL,
         answer TEXT NOT NULL,
-        parent_id INTEGER REFERENCES faqs(id),
+        parent_id INTEGER, -- Removed self-reference
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
