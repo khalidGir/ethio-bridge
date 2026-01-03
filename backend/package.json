@@ -6,7 +6,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "migrate": "tsx src/migrate.ts"
+    "migrate": "tsx src/migrate.ts",
+    "deploy": "npm run build && npm run migrate && npm start"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
