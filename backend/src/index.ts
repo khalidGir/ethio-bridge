@@ -1,6 +1,5 @@
 // Load environment variables FIRST
 import 'dotenv/config';
-import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -11,7 +10,12 @@ const fastify = Fastify({ logger: true });
 
 // Database connection - use Render's DATABASE_URL
 const connectionString = process.env.DATABASE_URL;
-console.log('Database connection string length:', connectionString ? connectionString.length : 'not set');
+console.log('=== DATABASE CONNECTION DEBUG ===');
+console.log('DATABASE_URL exists:', !!connectionString);
+console.log('DATABASE_URL starts with "postgresql://":', connectionString?.startsWith('postgresql://'));
+console.log('DATABASE_URL contains spaces:', connectionString?.includes(' ') ? 'YES - THIS IS WRONG' : 'no');
+console.log('DATABASE_URL first 50 chars:', connectionString?.substring(0, 50) + '...');
+console.log('==============================\n');
 
 if (!connectionString) {
   console.error('❌ DATABASE_URL environment variable is not set');
@@ -19,8 +23,31 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const client = postgres(connectionString);
-const db = drizzle(client, { schema });
+// Check for common formatting issues
+if (connectionString.includes(' ')) {
+  console.error('❌ DATABASE_URL contains spaces. Remove spaces in Render environment variable.');
+  console.error('Current value:', `"${connectionString}"`);
+  console.error('Should be:', `"${connectionString.trim()}"`);
+  process.exit(1);
+}
+
+if (!connectionString.startsWith('postgresql://')) {
+  console.error('❌ DATABASE_URL must start with postgresql://');
+  console.error('Current value starts with:', connectionString.substring(0, 20));
+  process.exit(1);
+}
+
+let client;
+let db;
+
+try {
+  client = postgres(connectionString);
+  db = drizzle(client, { schema });
+  console.log('✅ Database client initialized');
+} catch (error: any) {
+  console.error('❌ Failed to initialize database client:', error.message);
+  process.exit(1);
+}
 
 // CORS - Allow frontend
 fastify.register(cors, { 
@@ -28,26 +55,30 @@ fastify.register(cors, {
   credentials: true 
 });
 
-// Health check
+// Health check with detailed database test
 fastify.get('/health', async () => {
   try {
     // Test database connection
-    await client`SELECT 1`;
+    await client`SELECT 1 as test`;
     return { 
       status: 'ok', 
       timestamp: new Date().toISOString(),
-      database: 'connected'
+      database: 'connected',
+      environment: process.env.NODE_ENV || 'not set'
     };
   } catch (error: any) {
     return { 
       status: 'error', 
       timestamp: new Date().toISOString(),
       database: 'disconnected',
-      error: error.message 
+      environment: process.env.NODE_ENV || 'not set',
+      error: error.message,
+      connectionInfo: 'Check Render environment variables for DATABASE_URL formatting'
     };
   }
 });
 
+// [Rest of the endpoints remain the same...]
 // Get business configuration
 fastify.get('/api/config/:businessId', async (request: any, reply) => {
   const { businessId } = request.params;
@@ -130,11 +161,10 @@ const start = async () => {
   try {
     const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
     console.log(`Starting server on port ${port}...`);
-    console.log(`Database URL configured: ${!!connectionString}`);
     
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`🚀 Backend server running on port ${port}`);
-    console.log(`📊 Health check: http://localhost:${port}/health`);
+    console.log(`📊 Health check: https://ethio-bridge-api.onrender.com/health`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
