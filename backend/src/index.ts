@@ -1,3 +1,6 @@
+// Load environment variables FIRST
+import 'dotenv/config';
+import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -6,40 +9,68 @@ import * as schema from './schema';
 
 const fastify = Fastify({ logger: true });
 
-// Database connection
-const connectionString = process.env.DATABASE_URL || 'postgresql://localhost/ethio_bridge';
+// Database connection - use Render's DATABASE_URL
+const connectionString = process.env.DATABASE_URL;
+console.log('Database connection string length:', connectionString ? connectionString.length : 'not set');
+
+if (!connectionString) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  console.error('Please set DATABASE_URL in Render environment variables');
+  process.exit(1);
+}
+
 const client = postgres(connectionString);
 const db = drizzle(client, { schema });
 
 // CORS - Allow frontend
 fastify.register(cors, { 
-  origin: ['http://localhost:5173', 'https://*.vercel.app'],
+  origin: ['http://localhost:5173', 'https://*.vercel.app', 'https://ethio-bridge.vercel.app'],
   credentials: true 
 });
 
 // Health check
 fastify.get('/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+  try {
+    // Test database connection
+    await client`SELECT 1`;
+    return { 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    };
+  } catch (error: any) {
+    return { 
+      status: 'error', 
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message 
+    };
+  }
 });
 
 // Get business configuration
 fastify.get('/api/config/:businessId', async (request: any, reply) => {
   const { businessId } = request.params;
   
-  const tenant = await db.query.tenants.findFirst({
-    where: (tenants, { eq }) => eq(tenants.id, businessId),
-  });
+  try {
+    const tenant = await db.query.tenants.findFirst({
+      where: (tenants, { eq }) => eq(tenants.id, businessId),
+    });
 
-  if (!tenant) {
-    return reply.code(404).send({ error: 'Business not found' });
+    if (!tenant) {
+      return reply.code(404).send({ error: 'Business not found' });
+    }
+
+    return {
+      id: tenant.id,
+      businessName: tenant.businessName,
+      brandColor: tenant.brandColor || '#2563eb',
+      telegramChatId: tenant.telegramChatId,
+    };
+  } catch (error: any) {
+    console.error('Error fetching config:', error);
+    return reply.code(500).send({ error: 'Database error' });
   }
-
-  return {
-    id: tenant.id,
-    businessName: tenant.businessName,
-    brandColor: tenant.brandColor || '#2563eb',
-    telegramChatId: tenant.telegramChatId,
-  };
 });
 
 // Submit a lead
@@ -71,7 +102,7 @@ fastify.post('/api/leads', async (request: any, reply) => {
       leadId: lead.id,
       message: 'Lead submitted successfully' 
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving lead:', error);
     return reply.code(500).send({ error: 'Failed to save lead' });
   }
@@ -81,18 +112,26 @@ fastify.post('/api/leads', async (request: any, reply) => {
 fastify.get('/api/faqs/:businessId', async (request: any) => {
   const { businessId } = request.params;
   
-  const faqs = await db.query.faqs.findMany({
-    where: (faqs, { eq }) => eq(faqs.tenantId, businessId),
-    orderBy: (faqs, { asc }) => [asc(faqs.id)],
-  });
+  try {
+    const faqs = await db.query.faqs.findMany({
+      where: (faqs, { eq }) => eq(faqs.tenantId, businessId),
+      orderBy: (faqs, { asc }) => [asc(faqs.id)],
+    });
 
-  return { faqs };
+    return { faqs };
+  } catch (error: any) {
+    console.error('Error fetching FAQs:', error);
+    return { faqs: [], error: 'Database error' };
+  }
 });
 
 // Start server
 const start = async () => {
   try {
     const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+    console.log(`Starting server on port ${port}...`);
+    console.log(`Database URL configured: ${!!connectionString}`);
+    
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`🚀 Backend server running on port ${port}`);
     console.log(`📊 Health check: http://localhost:${port}/health`);
