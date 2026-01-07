@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  projects  Project[]
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  language    String   // am, en
+  websiteUrl  String
+  apiKey     String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  documents  Document[]
+  createdAt  DateTime @default(now())
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  type      String   // website | pdf | faq
+  source    String
+  createdAt DateTime @default(now())
+}
+
+model ChatLog {
+  id        String   @id @default(uuid())
+  projectId String
+  question  String
+  answer    String
+  createdAt DateTime @default(now())
+}
