@@ -77,3 +77,4 @@ credentials
 *.pem
 *.crt
 *.cert
+node_modules

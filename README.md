@@ -26,5 +26,5 @@ Ethio-Bridge is a chat widget service that allows users to create projects with 
 - `DB_PASSWORD`
 - `DB_NAME`
 - `QDRANT_URL`
-- `OPENAI_API_KEY`
+- `HF_API_TOKEN`
 - `PLAYWRIGHT_TIMEOUT`

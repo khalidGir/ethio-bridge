@@ -8,7 +8,7 @@ async function bootstrap() {
   app.enableCors();
 
   // Enable throttling globally
-  app.useGlobalGuards(new ThrottlerGuard(app.getHttpAdapter()));
+  // app.useGlobalGuards(new ThrottlerGuard(app.getHttpAdapter()));
 
   await app.listen(process.env.PORT || 3000);
 }

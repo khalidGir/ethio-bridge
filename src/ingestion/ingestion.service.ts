@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import * as cheerio from 'cheerio';
 import axios, { AxiosRequestConfig } from 'axios';
 import { chromium } from 'playwright';
@@ -171,7 +171,7 @@ export class IngestionService {
             const links = await page.evaluate(() => {
               const anchors = Array.from(document.querySelectorAll('a[href]'));
               return anchors
-                .map(anchor => anchor.href)
+                .map(anchor => (anchor as HTMLAnchorElement).href)
                 .filter(href => href && href.startsWith(window.location.origin) && !href.includes('#'));
             });
 

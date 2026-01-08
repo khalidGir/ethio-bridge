@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, Query, Headers } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, Res, HttpCode } from '@nestjs/common';
+import { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { ChatService } from './chat.service';
 
@@ -28,5 +29,29 @@ export class ChatController {
       name: project.name,
       language: project.language,
     };
+  }
+
+  @Throttle({ default: { limit: 100, ttl: 60 } }) // Allow 100 requests per minute for embed endpoint
+  @Get('widget/embed.js')
+  @HttpCode(200)
+  async getEmbedScript(
+    @Query('key') apiKey: string,
+    @Res() res: Response,
+  ) {
+    const script = await this.chatService.getEmbedScript(apiKey);
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(script);
+  }
+
+  @Throttle({ default: { limit: 100, ttl: 60 } }) // Allow 100 requests per minute for chat interface endpoint
+  @Get('chat-interface')
+  @HttpCode(200)
+  async getChatInterface(
+    @Query('apiKey') apiKey: string,
+    @Res() res: Response,
+  ) {
+    const html = await this.chatService.getChatInterface(apiKey);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   }
 }

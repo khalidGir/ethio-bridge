@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { QdrantService } from './qdrant.service';
 import { EmbeddingService } from './embedding.service';
 import * as cheerio from 'cheerio';
@@ -149,5 +149,249 @@ export class ChatService {
     return await this.prisma.project.findUnique({
       where: { apiKey },
     });
+  }
+
+  async getEmbedScript(apiKey: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { apiKey },
+    });
+
+    if (!project) {
+      throw new Error('Invalid API key');
+    }
+
+    // Return the JavaScript code for the embeddable widget
+    const embedScript = `
+// Ethio-Bridge Chat Widget
+(function() {
+  // Create widget container
+  const widgetContainer = document.createElement('div');
+  widgetContainer.id = 'ethio-bridge-widget';
+  widgetContainer.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 10000;';
+  document.body.appendChild(widgetContainer);
+
+  // Create the iframe for the chat widget
+  const iframe = document.createElement('iframe');
+  iframe.id = 'ethio-bridge-iframe';
+  iframe.src = 'about:blank';
+  iframe.style.cssText = 'width: 400px; height: 500px; border: none; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+  iframe.style.display = 'none';
+
+  // Create the launcher button
+  const launcher = document.createElement('button');
+  launcher.id = 'ethio-bridge-launcher';
+  launcher.innerHTML = '💬';
+  launcher.style.cssText = 'width: 60px; height: 60px; border-radius: 50%; background: #4f46e5; color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+  launcher.onclick = function() {
+    if (iframe.style.display === 'none') {
+      iframe.style.display = 'block';
+      // Set the actual source when opened - using the chat interface endpoint
+      iframe.src = '/chat-interface?apiKey=${apiKey}';
+    } else {
+      iframe.style.display = 'none';
+    }
+  };
+
+  widgetContainer.appendChild(launcher);
+  widgetContainer.appendChild(iframe);
+
+  // Listen for messages from the iframe
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'resize') {
+      iframe.style.height = event.data.height + 'px';
+    }
+  });
+})();
+    `.trim();
+
+    return embedScript;
+  }
+
+  async getChatInterface(apiKey: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { apiKey },
+    });
+
+    if (!project) {
+      throw new Error('Invalid API key');
+    }
+
+    // Return a simple HTML chat interface
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${project.name} Chat</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        #messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #fafafa;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            margin-right: auto;
+        }
+        #input-area {
+            display: flex;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+        #message-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            outline: none;
+        }
+        #send-button {
+            margin-left: 10px;
+            padding: 12px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+        }
+        #send-button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .typing-indicator {
+            color: #888;
+            font-style: italic;
+            padding: 10px 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="messages">
+            <div class="message bot-message">Hello! I'm your assistant for ${project.name}. How can I help you today?</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="message-input" placeholder="Type your message..." />
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = '${apiKey}';
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        function addMessage(text, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
+            messageDiv.textContent = text;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.classList.add('typing-indicator');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.textContent = 'Thinking...';
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Add user message to UI
+            addMessage(message, true);
+            messageInput.value = '';
+            sendButton.disabled = true;
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                // Hide typing indicator
+                hideTypingIndicator();
+
+                // Add bot response to UI
+                addMessage(data.answer, false);
+            } catch (error) {
+                // Hide typing indicator
+                hideTypingIndicator();
+
+                // Show error message
+                addMessage('Sorry, I encountered an error. Please try again.', false);
+                console.error('Error sending message:', error);
+            } finally {
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Send initial focus to input
+        messageInput.focus();
+    </script>
+</body>
+</html>
+    `;
+
+    return html;
   }
 }
