@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "node node_modules/@nestjs/cli/bin/nest.js build",
-    "start": "node dist/main.js",
-    "postinstall": "prisma generate"
+    "build": "prisma generate && node node_modules/@nestjs/cli/bin/nest.js build",
+    "start": "node dist/main.js"
   },
   "keywords": [],
   "author": "",
